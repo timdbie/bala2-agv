@@ -23,6 +23,9 @@ Verify your installation together with the Bala2 robot by programming the runnin
 #include <M5Stack.h>
 #include <Wire.h>
 
+#define IR_LEFT_PIN 26
+#define IR_RIGHT_PIN 36
+
 void read_encoders(int32_t* wheel_left_encoder, int32_t* wheel_right_encoder)
 {
   uint8_t data_in[8];
@@ -46,6 +49,12 @@ void write_motor_cmd(int16_t wheel_left, int16_t wheel_right) // Sets the motor 
   data_out[3] = (int8_t)(wheel_right >> 0);
 
   M5.I2C.writeBytes(0x3A, 0x00, data_out, 4);
+}
+
+int read_ir_error() {
+  int left = analogRead(IR_LEFT_PIN);
+  int right = analogRead(IR_RIGHT_PIN);
+  return left - right;
 }
 
 void setup() {
