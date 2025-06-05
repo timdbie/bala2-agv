@@ -1,28 +1,8 @@
-/*
-Make sure you have the [Arduino IDE](https://www.arduino.cc/en/software/) installed.
-To program your bala2, prepare the following:
-
-1. **Add the ESP32 board URL**  
-   Go to `File > Preferences`, and in the **"Additional Board Manager URLs"** field, add:  
-https://espressif.github.io/arduino-esp32/package_esp32_index.json
-
-2. **Install ESP32 board definitions**  
-Go to `Tools > Board > Boards Manager` (or press `Ctrl+Shift+B`), search for **ESP32 by Espressif Systems**, select **version 2.0.7**, and click **Install**.
-
-3. **Select the correct board**  
-Navigate to `Tools > Board > esp32`, then select **M5Stack-Core-ESP32**  
-*(Note: boards may not be listed in alphabetical order.)*
-
-4. **Install required libraries**  
-Go to `Tools > Manage Libraries` (or press `Ctrl+Shift+I`), search for **M5Stack**, and install the library.
-
-5. **Verification**
-Verify your installation together with the Bala2 robot by programming the running "hello world" application:
-
-*/
 #include <M5Stack.h>
 #include <Wire.h>
 
+int32_t right_prev = 0;
+uint32_t time_prev = 0;
 void read_encoders(int32_t* wheel_left_encoder, int32_t* wheel_right_encoder)
 {
   uint8_t data_in[8];
@@ -83,16 +63,31 @@ void setup() {
     M5.Lcd.println("*** ERROR *** Check your hardware first.");
     while(1);
   }
+  Serial.println("Time(ms),Input,Velocity");
 }
 
 void loop() {
+  static uint32_t startTime = millis();
   int32_t left, right;
- 
   read_encoders(&left, &right);
-  Serial.print(left);
-  Serial.print(", ");
-  Serial.println(right);
+ 
+  uint32_t now = millis();
+  uint32_t elapsed = now - startTime;
+  uint32_t dt = now - time_prev;
+  int16_t stepInput = 500;
+  float velocity = (right - right_prev) / (dt / 1000.0);
+  if (elapsed > 5000) {
+    write_motor_cmd(0, 0);
+    return;
+  }
 
-  write_motor_cmd(0, left);
-  delay(1000);
+  write_motor_cmd(0, stepInput);
+  Serial.print(elapsed);
+  Serial.print(", ");
+  Serial.print(stepInput);
+  Serial.print(", ");
+  Serial.println(velocity);
+  right_prev = right;
+  time_prev = now;
+  delay(50);
 }
