@@ -68,37 +68,38 @@ void setup() {
 }
 
 void loop() {
-  uint32_t now = millis();
   static int32_t right_prev = 0;
   static uint32_t time_prev = 0;
   static uint32_t start_time = millis();
+  static uint32_t last_sample_time = start_time;
   int16_t step = 500;
+
+  uint32_t now = millis();
+
   if (now - last_sample_time >= sample_interval) {
-    last_sample_time = now;
+    last_sample_time += sample_interval;
 
     int32_t left, right;
     read_encoders(&left, &right);
 
     uint32_t elapsed = now - start_time;
     uint32_t dt = now - time_prev;
+    time_prev = now;
 
-    if (elapsed > 5000)
-    {
+    if (elapsed > 5000) {
       write_motor_cmd(0, 0);
       return;
     }
+
     write_motor_cmd(0, step);
 
     float velocity = (right - right_prev) / (dt / 1000.0);
+    right_prev = right;
 
     Serial.print(elapsed);
     Serial.print(", ");
     Serial.print(step);
     Serial.print(", ");
     Serial.println(velocity);
-
-
-    right_prev = right;
-    time_prev = now;
   }
 }
