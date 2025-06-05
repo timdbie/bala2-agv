@@ -72,7 +72,7 @@ void loop() {
   static uint32_t time_prev = 0;
   static uint32_t start_time = millis();
   static uint32_t last_sample_time = start_time;
-  int16_t step = 500;
+  int16_t step = 0;
 
   uint32_t now = millis();
 
@@ -86,12 +86,17 @@ void loop() {
     uint32_t dt = now - time_prev;
     time_prev = now;
 
-    if (elapsed > 5000) {
+
+    if (elapsed > 100)
+    {
+      step = 500;
+    }
+    write_motor_cmd(0, step);
+    if (elapsed > 2000) 
+    {
       write_motor_cmd(0, 0);
       return;
     }
-
-    write_motor_cmd(0, step);
 
     float velocity = (right - right_prev) / (dt / 1000.0);
     right_prev = right;
