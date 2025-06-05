@@ -1,8 +1,9 @@
 #include <M5Stack.h>
 #include <Wire.h>
 
-int32_t right_prev = 0;
-uint32_t time_prev = 0;
+uint32_t last_sample_time = 0;
+uint32_t sample_interval = 50;
+
 void read_encoders(int32_t* wheel_left_encoder, int32_t* wheel_right_encoder)
 {
   uint8_t data_in[8];
@@ -67,27 +68,37 @@ void setup() {
 }
 
 void loop() {
-  static uint32_t startTime = millis();
-  int32_t left, right;
-  read_encoders(&left, &right);
- 
   uint32_t now = millis();
-  uint32_t elapsed = now - startTime;
-  uint32_t dt = now - time_prev;
-  int16_t stepInput = 500;
-  float velocity = (right - right_prev) / (dt / 1000.0);
-  if (elapsed > 5000) {
-    write_motor_cmd(0, 0);
-    return;
-  }
+  static int32_t right_prev = 0;
+  static uint32_t time_prev = 0;
+  static uint32_t start_time = millis();
+  int16_t step = 500;
+  if (now - last_sample_time >= sample_interval) {
+    last_sample_time = now;
 
-  write_motor_cmd(0, stepInput);
-  Serial.print(elapsed);
-  Serial.print(", ");
-  Serial.print(stepInput);
-  Serial.print(", ");
-  Serial.println(velocity);
-  right_prev = right;
-  time_prev = now;
-  delay(50);
+    int32_t left, right;
+    read_encoders(&left, &right);
+
+    uint32_t elapsed = now - start_time;
+    uint32_t dt = now - time_prev;
+
+    if (elapsed > 5000)
+    {
+      write_motor_cmd(0, 0);
+      return;
+    }
+    write_motor_cmd(0, step);
+
+    float velocity = (right - right_prev) / (dt / 1000.0);
+
+    Serial.print(elapsed);
+    Serial.print(", ");
+    Serial.print(step);
+    Serial.print(", ");
+    Serial.println(velocity);
+
+
+    right_prev = right;
+    time_prev = now;
+  }
 }
