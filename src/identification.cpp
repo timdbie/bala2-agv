@@ -89,7 +89,7 @@ void loop() {
 
     if (elapsed > 100)
     {
-      step = 500;
+      step = 1000;
     }
     write_motor_cmd(0, step);
     if (elapsed > 2000) 
