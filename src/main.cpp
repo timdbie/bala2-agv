@@ -22,31 +22,19 @@ Verify your installation together with the Bala2 robot by programming the runnin
 */
 #include <M5Stack.h>
 #include <Wire.h>
+#include <delay.h>
+#include <servo.h>
+#include <pi.h>
+#include <i2c.h>
 
-void read_encoders(int32_t* wheel_left_encoder, int32_t* wheel_right_encoder)
-{
-  uint8_t data_in[8];
-  M5.I2C.readBytes(0x3A, 0x10, 8, data_in);
+#define MAX_VAL 1023
+// #define MAX_INTEGRAL 1000
 
-  *wheel_left_encoder = (data_in[0] << 24) | (data_in[1] << 16) | (data_in[2] << 8) | data_in[3];
-  *wheel_right_encoder = (data_in[4] << 24) | (data_in[5] << 16) | (data_in[6] << 8) | data_in[7]; 
-}
-
-void write_motor_cmd(int16_t wheel_left, int16_t wheel_right) // Sets the motor setpoint (range: -1023 ~ 1023)
-{
-  uint8_t data_out[4];
-
-  // Invert the command (positive command should result in an increment in encoder position)
-  wheel_left *= -1;
-  wheel_right *= -1;
-
-  data_out[0] = (int8_t)(wheel_left >> 8);
-  data_out[1] = (int8_t)(wheel_left >> 0);
-  data_out[2] = (int8_t)(wheel_right >> 8);
-  data_out[3] = (int8_t)(wheel_right >> 0);
-
-  M5.I2C.writeBytes(0x3A, 0x00, data_out, 4);
-}
+float target_velocity_left = 0;
+float target_velocity_right = 0;
+float Kp = 0.05;
+float Ki = 1;
+float deltaTime = 0.05;
 
 void setup() {
   bool found = false;
@@ -57,25 +45,9 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Hello from M5Stack (serial port)!");
   
-  // Initialize I2C and scan the bus
-  Wire.setClock(400000);        // Set I2C to 400 kHz (instead of 100 kHz)
-  Wire.begin();
-  Serial.println("Scanning (0x3A to be expected)...");
-  for (byte i = 1; i < 127; i++) {
-    Wire.beginTransmission(i);
-    if (Wire.endTransmission() == 0) {
-      Serial.print("Found I2C device at 0x");
-      Serial.println(i, HEX);
-      delay(10);
-      if(i == 0x3A) 
-        found = true;
-    }
-  }
-
-  if(found)
+  if(i2cServoInit())
   {
     M5.Lcd.println("Motor controller found on I2C bus!");
-    M5.Lcd.println("Rotate the left wheel now to control the right one");
   }
   else
   {
@@ -86,13 +58,10 @@ void setup() {
 }
 
 void loop() {
-  int32_t left, right;
- 
-  read_encoders(&left, &right);
-  Serial.print(left);
-  Serial.print(", ");
-  Serial.println(right);
-
-  write_motor_cmd(0, left);
-  delay(1000);
+  uint32_t elapsed;
+  if (intervalReady(&elapsed)) {
+    int32_t velocity_left;
+    int32_t velocity_right;
+    pi_control(target_velocity_left, target_velocity_right, &velocity_left, &velocity_right);
+  }
 }
