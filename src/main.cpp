@@ -28,16 +28,80 @@ Verify your installation together with the Bala2 robot by programming the runnin
 #include <i2c.h>
 
 #define MAX_VAL 1023
-// #define MAX_INTEGRAL 1000
-
 #define LEFT_IR 26
 #define RIGHT_IR 36
 
+enum State {
+  SETUP,
+  SCAN,
+  STOP,
+  FORWARD,
+  LEFT,
+  RIGHT,
+};
+
+State state = SETUP;
 float target_velocity_left = 0;
 float target_velocity_right = 0;
-float Kp = 0.05;
+float Kp = 0.1;
 float Ki = 1;
 float deltaTime = 0.05;
+
+void state_handler(State* state) {
+  switch (*state)
+  {
+  case SCAN:
+    {
+      int left_sensor = digitalRead(LEFT_IR);
+      int right_sensor = digitalRead(RIGHT_IR);
+      if (left_sensor == HIGH && right_sensor == LOW) {
+        // line detected on left sensor only
+        *state = LEFT;
+      }
+      else if (right_sensor == HIGH && left_sensor == LOW) {
+        // line detected on right sensor only
+        *state = RIGHT;
+      }
+      else if (left_sensor == LOW && right_sensor == LOW) {
+        // no line detected
+        *state = STOP;
+      }
+      else if (left_sensor == HIGH && right_sensor == HIGH) {
+        // line detected
+        *state = FORWARD;
+      }
+      else {
+        // fallback in case of unexpected sensor readings
+        *state = STOP;
+      }
+    }
+    [[fallthrough]]
+  case FORWARD:
+      target_velocity_left = 200;
+      target_velocity_right = 200;
+      *state = SCAN;
+    break;
+  case LEFT:
+      target_velocity_left = 0;  
+      target_velocity_right = 200; 
+      *state = SCAN;
+    break;
+  case RIGHT:
+      target_velocity_left = 200; 
+      target_velocity_right = 0;  
+      *state = SCAN;
+    break;
+  case STOP:
+      target_velocity_left = 0;
+      target_velocity_right = 0;
+      *state = SCAN;
+    break;
+  default:
+      *state = SCAN;
+    break;
+  }
+
+}
 
 void setup() {
   bool found = false;
@@ -61,40 +125,13 @@ void setup() {
     M5.Lcd.println("*** ERROR *** Check your hardware first.");
     while(1);
   }
+  state = SCAN;
 }
 
 void loop() {
   uint32_t elapsed;
   if (intervalReady(&elapsed)) {
-    int left_sensor = digitalRead(LEFT_IR);
-    int right_sensor = digitalRead(RIGHT_IR);
-
-    if (left_sensor == HIGH && right_sensor == LOW) {
-      // line detected on left sensor only
-      target_velocity_left = 0;  
-      target_velocity_right = 200; 
-    }
-    else if (right_sensor == HIGH && left_sensor == LOW) {
-      // line detected on right sensor only
-      target_velocity_left = 200; 
-      target_velocity_right = 0;  
-    }
-    else if (left_sensor == LOW && right_sensor == LOW) {
-      // no line detected
-      target_velocity_left = 0;
-      target_velocity_right = 0;
-    }
-    else if (left_sensor == HIGH && right_sensor == HIGH) {
-      // line detected
-      target_velocity_left = 200;
-      target_velocity_right = 200;
-    }
-    else {
-      // fallback in case of unexpected sensor readings
-      target_velocity_left = 0;
-      target_velocity_right = 0;
-    }
-
+    state_handler(&state);
     int32_t velocity_left;
     int32_t velocity_right;
     pi_control(target_velocity_left, target_velocity_right, &velocity_left, &velocity_right);
